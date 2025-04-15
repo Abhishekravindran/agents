@@ -3,7 +3,7 @@
 
 
 
-⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡
+⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡- modified implemntation using local LLM 
 
 ~ by Andrew Zhao, Daniel Huang, Quentin Xu, Matthieu Lin, Yong-Jin Liu, Gao Huang ~
 
