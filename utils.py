@@ -3,7 +3,7 @@ import string
 from typing import List, Dict, Callable, Tuple, Any, Union
 from matplotlib import pyplot as plt
 
-import tiktoken
+from transformers import AutoTokenizer
 from langchain.schema import (
     ChatMessage
 )
@@ -100,7 +100,7 @@ def shuffled_chunks(lst: List[Any], num_chunks: int):
     random.shuffle(chunks)
     return chunks
 
-def token_counter(text: str, llm: str = 'gpt-3.5-turbo', tokenizer: Callable = None) -> int:
+def token_counter(text: str, llm: str = 'ollama', tokenizer: Callable = None) -> int:
     """
     Counts the number of tokens in the text.
     
@@ -109,10 +109,12 @@ def token_counter(text: str, llm: str = 'gpt-3.5-turbo', tokenizer: Callable = N
         llm: The language model name.
         tokenizer: The tokenizer to be used.
     """
-    if 'gpt' in llm:
-        return len(tiktoken.encoding_for_model(llm).encode(text))
-
-    raise NotImplementedError
+    if tokenizer is not None:
+        return len(tokenizer(text))
+    
+    # Use MPNet tokenizer by default
+    tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-mpnet-base-v2")
+    return len(tokenizer(text)["input_ids"])
 
 def print_message(message: ChatMessage, token_counter: Callable = None, testing: bool = True, extra_text: str = '') -> None:
     """

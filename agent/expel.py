@@ -1,11 +1,12 @@
 import random
-from typing import List, Dict, Callable, Union, Any, Tuple
+from typing import List, Dict, Callable, Union, Any, Tuple, Optional
 import re
 from functools import partial
+import time
 
 from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
-from langchain.schema import HumanMessage, Document
+from langchain.schema import HumanMessage, Document, ChatMessage
 import numpy as np
 from openai.error import InvalidRequestError
 from scipy.spatial.distance import cosine
@@ -16,6 +17,32 @@ from utils import random_divide_list, save_trajectories_log, get_env_name_from_t
 from memory import Trajectory
 
 from copy import deepcopy
+
+from .react import ReAct
+from prompts import (
+    SYSTEM_INSTRUCTION,
+    HUMAN_INSTRUCTION,
+    FEWSHOTS,
+    REFLECTION_FEWSHOTS,
+    HUMAN_REFLECTION_INSTRUCTION,
+    SYSTEM_REFLECTION_INSTRUCTION,
+    SYSTEM_CRITIQUE_INSTRUCTION,
+    RULE_TEMPLATE,
+    LLM_PARSER,
+    OBSERVATION_FORMATTER,
+    STEP_IDENTIFIER,
+    CYCLER,
+    STEP_CYCLER,
+    REFLECTION_PREFIX,
+    PREVIOUS_TRIALS_FORMATTER,
+    STEP_STRIPPER,
+    CRITIQUE_SUMMARY_SUFFIX,
+)
+from memory import (
+    EMBEDDERS,
+    RETRIEVERS,
+)
+from models import LLM_CLS
 
 class ExpelAgent(ReflectAgent):
     def __init__(self,
@@ -741,3 +768,49 @@ def update_rules(rules: List[Tuple[str, int]], operations: List[Tuple[str, str]]
     rules.sort(key=lambda x: x[1], reverse=True)
 
     return rules
+
+class ExpeL(ReAct):
+    def __init__(
+        self,
+        env: Any,
+        llm: str = 'ollama',
+        openai_api_key: str = None,
+        max_steps: int = 50,
+        max_iterations: int = 3,
+        max_retries: int = 3,
+        verbose: bool = False,
+    ):
+        super().__init__(
+            env=env,
+            llm=llm,
+            openai_api_key=openai_api_key,
+            max_steps=max_steps,
+            max_retries=max_retries,
+            verbose=verbose,
+        )
+        self.max_iterations = max_iterations
+        self.reflection_counter = Count(max_iterations)
+
+    def run(self, mode: str = 'train') -> None:
+        """Run the agent in the environment."""
+        try:
+            super().run(mode)
+        except Exception as e:
+            if self.verbose:
+                print(f"Error during execution: {str(e)}")
+            self.halted = True
+
+    def save_checkpoint(self) -> Dict[str, Any]:
+        """Save the current state of the agent."""
+        save_dict = {k: v for k, v in self.__dict__.items() 
+                    if type(v) in [list, set, str, bool, int, dict, Count] 
+                    and k not in ['llm']}
+        return save_dict
+
+    def load_checkpoint(self, loaded_dict: Dict[str, Any], no_load_list: List[str] = None) -> None:
+        """Load the state of the agent from a checkpoint."""
+        if no_load_list is None:
+            no_load_list = []
+        for k, v in loaded_dict.items():
+            if k not in no_load_list:
+                setattr(self, k, v)

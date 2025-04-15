@@ -1,6 +1,7 @@
-from typing import List, Callable, Tuple, Dict, Any, Union
+from typing import List, Callable, Tuple, Dict, Any, Union, Optional
 from functools import partial
 from copy import deepcopy
+import time
 
 from langchain.prompts import PromptTemplate
 from langchain.schema import ChatMessage
@@ -13,6 +14,25 @@ from prompts.templates.human import (
     human_task_message_prompt,
 )
 from utils import print_message, token_counter
+from prompts import (
+    SYSTEM_INSTRUCTION,
+    HUMAN_INSTRUCTION,
+    FEWSHOTS,
+    SYSTEM_CRITIQUE_INSTRUCTION,
+    RULE_TEMPLATE,
+    LLM_PARSER,
+    OBSERVATION_FORMATTER,
+    STEP_IDENTIFIER,
+    CYCLER,
+    STEP_CYCLER,
+    STEP_STRIPPER,
+)
+from memory import (
+    EMBEDDERS,
+    RETRIEVERS,
+)
+from models import LLM_CLS
+from utils import Count
 
 class ReactAgent(BaseAgent):
     """
@@ -35,6 +55,8 @@ class ReactAgent(BaseAgent):
                  testing: bool = False,
                  task_idx: int = 0,
                  benchmark_name = None,
+                 max_retries: int = 3,
+                 verbose: bool = False,
                  *args,
                  **kwargs,
                  ) -> None:
@@ -53,6 +75,8 @@ class ReactAgent(BaseAgent):
         self.llm_parser = llm_parser
         self.observation_formatter = observation_formatter
         self._last_observation_history = None
+        self.max_retries = max_retries
+        self.verbose = verbose
 
         self.env = env(**self.tasks[self.task_idx]['env_kwargs'], max_steps=self.max_steps)
         self.env.reset()
@@ -274,3 +298,99 @@ class ReactAgent(BaseAgent):
                 continue
             setattr(self, k, v)
         # following attributes are not saved in pickle but correctely initialized back: ['rule_template', 'truncate_strategy', 'embedder', 'retriever_cls', 'manual', 'reflection_task_prompt', 'message_splitter', 'identifier', 'message_step_splitter', 'format_reflections', 'formatted_reflection', 'human_instruction', 'system_prompt', 'llm_parser', 'observation_formatter', 'env', 'print_message', 'llm', 'long_context_llm', 'token_counter']
+
+class ReAct:
+    def __init__(
+        self,
+        env: Any,
+        llm: str = 'ollama',
+        openai_api_key: str = None,
+        max_steps: int = 50,
+        max_retries: int = 3,
+        verbose: bool = False,
+    ):
+        self.env = env
+        self.llm = llm
+        self.max_steps = max_steps
+        self.max_retries = max_retries
+        self.verbose = verbose
+        
+        # Initialize LLM
+        self.llm_builder = LLM_CLS(llm, openai_api_key)
+        
+        # Initialize state
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset the agent's state."""
+        self.steps = 0
+        self.success = False
+        self.halted = False
+        self.fail = False
+        self.observations = []
+        self.actions = []
+        self.rewards = []
+
+    def run(self, mode: str = 'train') -> None:
+        """Run the agent in the environment."""
+        self.reset()
+        
+        while not (self.success or self.fail or self.halted) and self.steps < self.max_steps:
+            try:
+                # Get observation
+                observation = self.env.get_observation()
+                self.observations.append(observation)
+                
+                # Generate action
+                action = self._generate_action(observation)
+                self.actions.append(action)
+                
+                # Execute action
+                reward, done = self.env.step(action)
+                self.rewards.append(reward)
+                
+                # Update state
+                if done:
+                    self.success = reward > 0
+                    self.fail = reward <= 0
+                
+                self.steps += 1
+                
+            except Exception as e:
+                if self.verbose:
+                    print(f"Error during execution: {str(e)}")
+                self.halted = True
+                break
+
+    def _generate_action(self, observation: str) -> str:
+        """Generate an action based on the observation."""
+        messages = [
+            ChatMessage(type="system", content=SYSTEM_INSTRUCTION),
+            ChatMessage(type="human", content=f"Observation: {observation}\nAction:"),
+        ]
+        
+        for i in range(self.max_retries):
+            try:
+                action = self.llm_builder(messages)
+                return action.strip()
+            except Exception as e:
+                if self.verbose:
+                    print(f"Retry {i+1}/{self.max_retries}: {str(e)}")
+                time.sleep(1)
+        
+        raise RuntimeError("Failed to generate action after maximum retries")
+
+    def save_checkpoint(self) -> Dict[str, Any]:
+        """Save the current state of the agent."""
+        save_dict = {k: v for k, v in self.__dict__.items() 
+                    if type(v) in [list, set, str, bool, int, dict, Count] 
+                    and k not in ['llm']}
+        return save_dict
+
+    def load_checkpoint(self, loaded_dict: Dict[str, Any], no_load_list: List[str] = None) -> None:
+        """Load the state of the agent from a checkpoint."""
+        if no_load_list is None:
+            no_load_list = []
+        for k, v in loaded_dict.items():
+            if k not in no_load_list:
+                setattr(self, k, v)

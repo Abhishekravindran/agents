@@ -7,9 +7,10 @@ import os
 from copy import deepcopy
 from functools import partial
 import dotenv
-dotenv.load_dotenv()
+import logging
 
-from agent import AGENT
+from agent.expel import ExpeL
+from agent.react import ReAct
 from prompts.templates.system import system_message_prompt
 from prompts.templates.human import HUMAN_CRITIQUES
 from prompts import (
@@ -37,7 +38,7 @@ from memory import (
     RETRIEVERS,
 )
 from models import LLM_CLS
-from utils import get_fewshot_max_tokens, load_trajectories_log, save_trajectories_log, split_logs_by_task, plot_trial_stats, alfworld_results_per_env_name_log, get_webshop_mean_score, get_split_eval_idx_list
+from utils import get_fewshot_max_tokens, load_trajectories_log, save_trajectories_log, split_logs_by_task, plot_trial_stats, alfworld_results_per_env_name_log, get_webshop_mean_score, get_split_eval_idx_list, set_seed, get_env
 
 
 def get_eval_num(eval_idx: int, eval_idx_list: List[List[int]]) -> int:
@@ -50,11 +51,42 @@ def get_eval_num(eval_idx: int, eval_idx_list: List[List[int]]) -> int:
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="eval")
-def main(cfg : DictConfig) -> None:
-    if cfg.testing:
-        openai_api_key = 'NO_KEY_FOR_TESTING'
+def main(cfg: DictConfig):
+    set_seed(cfg.seed)
+    
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+    
+    # Use Ollama by default
+    cfg.llm = "ollama"
+    
+    # Create environment
+    env = get_env(cfg.env_name)
+    
+    # Initialize agent
+    if cfg.agent == 'expel':
+        agent = ExpeL(
+            env=env,
+            llm=cfg.llm,
+            openai_api_key=None,  # Not needed for Ollama
+            max_steps=cfg.max_steps,
+            max_iterations=cfg.max_iterations,
+            max_retries=cfg.max_retries,
+            verbose=cfg.verbose,
+        )
+    elif cfg.agent == 'react':
+        agent = ReAct(
+            env=env,
+            llm=cfg.llm,
+            openai_api_key=None,  # Not needed for Ollama
+            max_steps=cfg.max_steps,
+            max_retries=cfg.max_retries,
+            verbose=cfg.verbose,
+        )
     else:
-        openai_api_key = os.environ['OPENAI_API_KEY'] if 'OPENAI_API_KEY' in os.environ else getpass.getpass("Enter or paste your OpenAI API Key: ")    
+        raise ValueError(f'Unknown agent: {cfg.agent}')
+    
     LOG_PATH = Path('/'.join([cfg.log_dir, cfg.benchmark.name, cfg.agent_type]))
     SAVE_PATH = LOG_PATH / 'eval'
     SAVE_PATH.mkdir(exist_ok=True)
@@ -90,50 +122,7 @@ def main(cfg : DictConfig) -> None:
     # we start at the first task in the fold if we are starting a new run
     starting_idx = dicts[-1].get('starting_idx', eval_idx_list[0][0])
 
-    react_agent = AGENT[cfg.agent_type](
-        name=cfg.ai_name,
-        system_instruction=SYSTEM_INSTRUCTION[cfg.benchmark.name],
-        human_instruction=HUMAN_INSTRUCTION[cfg.benchmark.name],
-        tasks=INIT_TASKS_FN[cfg.benchmark.name](cfg),
-        fewshots=FEWSHOTS[cfg.benchmark.name],
-        system_prompt=system_message_prompt,
-        env=ENVS[cfg.benchmark.name],
-        max_steps=cfg.benchmark.max_steps,
-        openai_api_key=openai_api_key,
-        llm=cfg.agent.llm,
-        llm_builder=LLM_CLS,
-        reflection_fewshots=REFLECTION_FEWSHOTS[cfg.benchmark.name],
-        reflection_task_prompt=HUMAN_REFLECTION_INSTRUCTION[cfg.benchmark.name],
-        reflection_system_instruction=SYSTEM_REFLECTION_INSTRUCTION[cfg.benchmark.name],
-        reflection_system_prompt=SYSTEM_INSTRUCTION[cfg.benchmark.name],
-        max_relfection_depth=cfg.agent.max_reflection_depth if 'max_reflection_depth' in cfg.agent.keys() else 0,
-        system_critique_instructions=SYSTEM_CRITIQUE_INSTRUCTION[cfg.benchmark.name],
-        human_critiques=HUMAN_CRITIQUES,
-        max_num_rules=cfg.agent.max_num_rules if 'max_num_rules' in cfg.agent.keys() else 0,
-        rule_template=RULE_TEMPLATE[cfg.benchmark.name],
-        truncate_strategy=cfg.agent.truncate_strategy if 'truncate_strategy' in cfg.agent.keys() else None,
-        llm_parser=LLM_PARSER[cfg.benchmark.name],
-        observation_formatter=OBSERVATION_FORMATTER[cfg.benchmark.name],
-        embedder=EMBEDDERS(cfg.agent.retrieval_kwargs.embedder_type),
-        embedder_path=cfg.agent.retrieval_kwargs.embedder_path,
-        step_stripper=STEP_STRIPPER[cfg.benchmark.name],
-        retriever_cls=RETRIEVERS(cfg.agent.retrieval_kwargs.retriever_type),
-        message_splitter=CYCLER[cfg.benchmark.name],
-        identifier=STEP_IDENTIFIER[cfg.benchmark.name],
-        message_step_splitter=partial(STEP_CYCLER, benchmark=cfg.benchmark.name),
-        reflection_prefix=REFLECTION_PREFIX[cfg.benchmark.name],
-        previous_trials_formatter=PREVIOUS_TRIALS_FORMATTER[cfg.benchmark.name],
-        success_critique_num=cfg.agent.success_critique_num,
-        fewshot_strategy=cfg.agent.fewshot_strategy,
-        benchmark_name=cfg.benchmark.name,
-        reranker=cfg.agent.retrieval_kwargs.reranker,
-        buffer_retrieve_ratio=cfg.agent.retrieval_kwargs.buffer_retrieve_ratio,
-        critique_truncate_strategy=cfg.agent.critique_truncate_strategy,
-        critique_summary_suffix=CRITIQUE_SUMMARY_SUFFIX,
-        testing=cfg.testing,
-        task_idx=starting_idx,
-        max_fewshot_tokens=get_fewshot_max_tokens(cfg.benchmark.name) if cfg.agent.retrieval_kwargs.max_fewshot_tokens == 'auto' else cfg.agent.retrieval_kwargs.max_fewshot_tokens,
-    )
+    react_agent = agent
 
     if len(dicts) > 0:
         no_load_list = ['ai_message', 'message_type_format', 'max_num_rules', 'testing', 'human_critiques', 'system_critique_instructions', 'fewshot_strategy', 'success', 'halted', 'fail', 'task_idx', 'prompt_history', 'critique_truncate_strategy', 'success_critique_num', 'reflection_fewshots', 'reflection_system_prompt', 'reflection_prefix', 'reflection_prompt_history', 'reflections', 'previous_trial', 'perform_reflection', 'increment_task', 'reflection_system_kwargs', 'prepend_human_instruction', 'name', 'tasks', 'human_instruction_kwargs', 'all_system_instruction', 'all_fewshots', 'max_steps', 'ordered_summary', 'fewshots', 'system_instruction', 'num_fewshots', 'curr_step', 'log_idx', 'pretask_idx', 'reflect_interaction_idx', 'truncated', 'reward', 'terminated', 'autoregressive_model_instruction', 'failed_training_task_idx', '_train', 'task',

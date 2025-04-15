@@ -1,4 +1,3 @@
-import getpass
 import hydra
 from omegaconf import DictConfig
 from pathlib import Path
@@ -6,6 +5,10 @@ import os
 from copy import deepcopy
 from functools import partial
 import dotenv
+import sys
+import time
+import json
+import logging
 dotenv.load_dotenv()
 
 from agent import AGENT
@@ -36,15 +39,48 @@ from memory import (
     RETRIEVERS,
 )
 from models import LLM_CLS
-from utils import save_trajectories_log, load_trajectories_log, plot_trial_stats, split_logs_by_task, alfworld_results_per_env_name, get_webshop_mean_scores, get_fewshot_max_tokens
+from utils import save_trajectories_log, load_trajectories_log, plot_trial_stats, split_logs_by_task, alfworld_results_per_env_name, get_webshop_mean_scores, get_fewshot_max_tokens, set_seed, get_env
 from agent.reflect import Count
+from agent.expel import ExpeL
+from agent.react import ReAct
 
 @hydra.main(version_base=None, config_path="configs", config_name="train")
 def main(cfg : DictConfig) -> None:
-    if cfg.testing:
-        openai_api_key = 'NO_KEY_FOR_TESTING'
+    set_seed(cfg.seed)
+    
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+    
+    # Use Ollama by default
+    cfg.llm = "ollama"
+    
+    # Create environment
+    env = get_env(cfg.env_name)
+    
+    # Initialize agent
+    if cfg.agent == 'expel':
+        agent = ExpeL(
+            env=env,
+            llm=cfg.llm,
+            openai_api_key=None,  # Not needed for Ollama
+            max_steps=cfg.max_steps,
+            max_iterations=cfg.max_iterations,
+            max_retries=cfg.max_retries,
+            verbose=cfg.verbose,
+        )
+    elif cfg.agent == 'react':
+        agent = ReAct(
+            env=env,
+            llm=cfg.llm,
+            openai_api_key=None,  # Not needed for Ollama
+            max_steps=cfg.max_steps,
+            max_retries=cfg.max_retries,
+            verbose=cfg.verbose,
+        )
     else:
-        openai_api_key = os.environ['OPENAI_API_KEY'] if 'OPENAI_API_KEY' in os.environ else getpass.getpass("Enter or paste your OpenAI API Key: ")
+        raise ValueError(f'Unknown agent: {cfg.agent}')
+    
     LOG_PATH = Path('/'.join([cfg.log_dir, cfg.benchmark.name, cfg.agent_type]))
     LOG_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -75,8 +111,8 @@ def main(cfg : DictConfig) -> None:
         system_prompt=system_message_prompt,
         env=ENVS[cfg.benchmark.name],
         max_steps=cfg.benchmark.max_steps,
-        openai_api_key=openai_api_key,
-        llm=cfg.agent.llm,
+        openai_api_key=None,  # Not needed for Ollama
+        llm=cfg.llm,  # Use Ollama
         llm_builder=LLM_CLS,
         reflection_fewshots=REFLECTION_FEWSHOTS[cfg.benchmark.name],
         reflection_task_prompt=HUMAN_REFLECTION_INSTRUCTION[cfg.benchmark.name],
@@ -117,7 +153,7 @@ def main(cfg : DictConfig) -> None:
 
     print(f"""*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
-You are using the following language model: {react_agent.llm.model_name}
+You are using the following language model: Ollama
 
 *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*""")
 
