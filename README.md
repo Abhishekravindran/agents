@@ -3,10 +3,7 @@
 
 
 
-⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡- modified implemntation using local LLM 
-
-~ by Andrew Zhao, Daniel Huang, Quentin Xu, Matthieu Lin, Yong-Jin Liu, Gao Huang ~
-
+⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡- modified implemntation using local LLM for new knowledge introduction 
 
 [![Release Notes](https://img.shields.io/github/release/LeapLabTHU/ExpeL)](https://github.com/LeapLabTHU/ExpeL/releases)
 ![License: Apache 2.0](https://img.shields.io/github/license/LeapLabTHU/ExpeL)
@@ -241,36 +238,7 @@ python eval.py benchmark=webshop load_run_name=extracted_insights/<insights-extr
  python eval.py benchmark=hotpotqa load_run_name=extracted_insights/<insights-extraction-run-name> run_name=<eval-run-name> agent.fewshot_strategy=task_similarity testing=false resume=false
 ```
 The result files will be saved in ``logs/<benchmark-name>/expel/eval`` referenced by ``<eval-run-name>``.
-
-## 🫡 Cite us !
-
-This repository contains code for reproducing results. If you find this work useful in your research (and/or daily life), please cite:
-
-```
-@inproceedings{zhao2024expel,
-    author       = {Andrew Zhao and Daniel Huang and Quentin Xu and Matthieu Lin and Yong-Jin Liu and Gao Huang},
-    title        = {ExpeL: LLM Agents Are Experiential Learners},
-    booktitle    = {Thirty-Eighth {AAAI} Conference on Artificial Intelligence, {AAAI}
-                    2024, Thirty-Sixth Conference on Innovative Applications of Artificial
-                    Intelligence, {IAAI} 2024, Fourteenth Symposium on Educational Advances
-                    in Artificial Intelligence, {EAAI} 2024, February 20-27, 2024, Vancouver,
-                    Canada},
-    editor       = {Michael J. Wooldridge and Jennifer G. Dy and Sriraam Natarajan},
-    year         = {2024},
-    pages        = {19632--19642},
-    publisher    = {{AAAI} Press},
-    url          = {https://ojs.aaai.org/index.php/AAAI/article/view/29936},
-    doi          = {10.1609/aaai.v38i17.29936}
-}
-```
-
-## 💌 Contact us !
-
-If you have any questions, feel free to contact [Andrew Zhao](mailto:zqc21@mails.tsinghua.edu.cn), [Daniel Huang](mailto:huang-jy22@mails.tsinghua.edu.cn) or [Quentin Xu](mailto:quentinxu1@gmail.com).
-
-
-## 🏛️ License 
-Check `LICENSE.md`
+`
 
 ## ⚠️ Issues
 We encountered some errors and gathered them here (note that at time of reading, they might have been fixed). If you don't encountered them, lucky you 😒. 
