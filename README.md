@@ -3,7 +3,7 @@
 
 
 
-⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡- modified implemntation using local LLM for new knowledge introduction 
+⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡- modified implemntation using Grok for new knowledge introduction 
 
 [![Release Notes](https://img.shields.io/github/release/LeapLabTHU/ExpeL)](https://github.com/LeapLabTHU/ExpeL/releases)
 ![License: Apache 2.0](https://img.shields.io/github/license/LeapLabTHU/ExpeL)
