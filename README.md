@@ -1,17 +1,5 @@
-<img src="assets/header_baby.png" alt="Smoll baby robot" width="auto" height="80">  | <span style="font-size: 25px;">ExpeL: LLM Agents are Experiential Learners</span>
-:---:|:---:
+Ever Wondered is there a possibility to impart new knowledge to closed source LLM's ?
 
-
-
-⚡ [AAAI 2024 *(Oral)*] Official implementation of the ExpeL Agent ⚡- modified implemntation using Grok for new knowledge introduction 
-
-[![Release Notes](https://img.shields.io/github/release/LeapLabTHU/ExpeL)](https://github.com/LeapLabTHU/ExpeL/releases)
-![License: Apache 2.0](https://img.shields.io/github/license/LeapLabTHU/ExpeL)
-[![GitHub star chart](https://img.shields.io/github/stars/LeapLabTHU/ExpeL?style=social)](https://star-history.com/#LeapLabTHU/ExpeL)
-[![Open Issues](https://img.shields.io/github/issues-raw/LeapLabTHU/ExpeL)](https://github.com/LeapLabTHU/ExpeL/issues)
-
----
-### 🌐 $\cdot$ [Project Page](https://andrewzh112.github.io/expel) &ensp; 📄 $\cdot$ [Paper](https://arxiv.org/pdf/2308.10144.pdf)
 
 > "A computer program is said to learn from experience E with respect to some class of tasks T and performance measure P, if its performance at tasks in T, as measured by P, improves with experience E." - Tom Mitchell
 
@@ -22,7 +10,6 @@
   <!-- Left Column - List -->
   <div style="flex: 1; padding-right: 1px;">
 
-[👋 Introduction](#-introduction)
 
 [🛠️ Installation](#%EF%B8%8F-installation)
 
@@ -35,30 +22,9 @@
 2. [Insights Extraction](#2-for-the-insights-extraction-stage)
 3. [Evaluation](#3-for-evaluation)
 
-[🫡 Cite us !](#-cite-us-)
-
-[💌 Contact us !](#-contact-us-)
-
-[🏛️ License](#%EF%B8%8F-license)
-
-[⚠️ Issues](#%EF%B8%8F-issues)
-
-</div>
-
-  <!-- Right Column - Image -->
-  <div style="flex: 2;">
-  
-  <img src="assets/expel.png" alt="Smoll baby robot" width="auto" height="auto">
-  
-  </div>
-
-</div>
-
 
 
 ## 👋 Introduction
-
-This repo is the official implementation of [Expel: LLM Agents are Experiential Learners](https://arxiv.org/pdf/2308.10144.pdf). 
 
 Our agent autonomously gathers experiences and extracts knowledge using natural language from a collection of training tasks. At inference, the agent recalls its extracted insights and past experiences to make informed decisions. Our empirical results highlight the robust learning efficacy of the ExpeL agent, indicating a consistent enhancement in its performance as it accumulates experiences.
 
